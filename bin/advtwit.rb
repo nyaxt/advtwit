@@ -31,6 +31,7 @@ require 'rubygems'
 require 'pit'
 require 'twitter'
 require 'nkf'
+require 'tinyurl'
 require 'rexml/document'
 
 module AdvTwit
@@ -217,8 +218,13 @@ class App
 
   def update_twit 
     @twit.timeline(:friends).each do |s|
+      msg = CGI.unescapeHTML(REXML::Text::unnormalize(s.text))
+      msg.gsub!(/http:\/\/tinyurl\.com\/[a-z0-9]{6}/) do |turl|
+        Tinyurl.new(turl).original
+      end
+
       status = Status.new({
-        :message => CGI.unescapeHTML(REXML::Text::unnormalize(s.text)),
+        :message => msg,
         :user => REXML::Text::unnormalize(s.user.name),
         :nick => s.user.screen_name
         })
