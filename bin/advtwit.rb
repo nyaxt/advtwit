@@ -113,12 +113,13 @@ class KeywordEvaluator < Evaluator
   def evaluate(status)
     totalscore = 0
 
-    p @keywords
     @keywords.each_pair do |keyword, score|
-      if status.match(keyword)
+      if status.message.match(keyword)
         totalscore += score
       end
     end
+
+    totalscore
   end
 
 end
@@ -173,7 +174,7 @@ class App
         })
 
       status.score = @evaluator.evaluate(status)
-      @timeline.add_status()
+      @timeline.add_status(status)
     end
   end
 
