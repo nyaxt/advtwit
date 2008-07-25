@@ -218,7 +218,7 @@ class App
   def update_twit 
     @twit.timeline(:friends).each do |s|
       status = Status.new({
-        :message => REXML::Text::unnormalize(s.text),
+        :message => CGI.unescapeHTML(REXML::Text::unnormalize(s.text)),
         :user => REXML::Text::unnormalize(s.user.name),
         :nick => s.user.screen_name
         })
