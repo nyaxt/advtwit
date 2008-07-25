@@ -124,6 +124,21 @@ class KeywordEvaluator < Evaluator
 
 end
 
+# scores if any reply to me is included
+class ReplyEvaluator < Evaluator
+
+  DEFAULT_SCORE = 500
+
+  def initialize(mynick)
+    @mynick = mynick
+  end
+
+  def evaluate(status)
+    status.message.match(@mynick) ? DEFAULT_SCORE : 0
+  end
+
+end
+
 # multiple evaluators combined
 # TODO: better name???
 class EvaluatorComposer < Evaluator
@@ -164,6 +179,10 @@ class App
 
       @evaluator.add_evaluator(keywordeval)
     end
+
+    @evaluator.add_evaluator(
+      ReplyEvaluator.new(@opts[:twit_user])
+      )
   end
 
   def update_twit 
@@ -190,14 +209,14 @@ end
 opts = {}
 unless false #opts[:twit_user] and opts[:twit_pass]
   credentials = Pit.get("advtwit", :require => {
-    "twit_user" => "twitter username/email address",
+    "twit_user" => "twitter username",
     "twit_pass" => "twitter password",
     })
 
   opts[:twit_user] ||= credentials["twit_user"]
   opts[:twit_pass] ||= credentials["twit_pass"]
 end
-opts[:keywords] = ['advtwit']
+opts[:keywords] = ['advtwit', 'nyaxt']
 
 app = AdvTwit::App.new(opts)
 app.main
