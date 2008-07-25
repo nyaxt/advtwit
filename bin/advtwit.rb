@@ -36,7 +36,7 @@ require 'rexml/document'
 module AdvTwit
 
 class Status
-  attr_accessor :user, :message, :score
+  attr_accessor :user, :nick, :message, :score
 
   def initialize(hash)
     # atode kaku
@@ -47,11 +47,12 @@ class Status
 =end
     
     @user = hash[:user]
+    @nick = hash[:nick]
     @message = hash[:message]
   end
 
   def to_s 
-    "#{@user}: #{message} (#{score})"
+    "#{@user} (#{nick}): #{message} (#{score})"
   end
 
   def inspect; to_s; end
@@ -139,6 +140,28 @@ class ReplyEvaluator < Evaluator
 
 end
 
+# scores if status has been post by specific user
+class UserEvaluator < Evaluator
+  attr_accessor :users
+
+  def initialize(users)
+    @users = users
+  end
+
+  def evaluate(status)
+    totalscore = 0
+
+    @keywords.each_pair do |hotnick, score|
+      if status.nick == hotnick
+        totalscore += score
+      end
+    end
+
+    totalscore
+  end
+
+end
+
 # multiple evaluators combined
 # TODO: better name???
 class EvaluatorComposer < Evaluator
@@ -183,13 +206,21 @@ class App
     @evaluator.add_evaluator(
       ReplyEvaluator.new(@opts[:twit_user])
       )
+
+    if @opts[:hotnicks]
+      hotnicks = @opts[:hotnicks]
+      usereval = KeywordEvaluator.new(hotnicks)
+
+      @evaluator.add_evaluator(usereval)
+    end
   end
 
   def update_twit 
     @twit.timeline(:friends).each do |s|
       status = Status.new({
         :message => REXML::Text::unnormalize(s.text),
-        :user => s.user.name
+        :user => REXML::Text::unnormalize(s.user.name),
+        :nick => s.user.screen_name
         })
 
       status.score = @evaluator.evaluate(status)
@@ -217,6 +248,7 @@ unless false #opts[:twit_user] and opts[:twit_pass]
   opts[:twit_pass] ||= credentials["twit_pass"]
 end
 opts[:keywords] = ['advtwit', 'nyaxt']
+opts[:hotnicks] = ['nyaxt', 'syou6162', 'showyou']
 
 app = AdvTwit::App.new(opts)
 app.main
