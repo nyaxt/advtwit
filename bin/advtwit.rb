@@ -1,4 +1,4 @@
-#!/usr/bin/ruby
+#!/usr/bin/env ruby
 # advtwit: twitter client for freaks 上級者向けtwitterクライアント（笑)
 #
 #License::
@@ -59,6 +59,10 @@ class Status
 
   def inspect; to_s; end
 
+  def is_Japanese?
+    not @message.match(/[あ-んア-ン]/).nil?
+  end
+
 end
 
 class Timeline
@@ -90,7 +94,11 @@ class Evaluator
   end
 
   def evaluate(status)
-    super    
+    0 # by default
+  end
+
+  def feedback(status)
+    nil # by default
   end
 
   # TODO: marshal / unmarshalize
@@ -146,14 +154,22 @@ end
 class UserEvaluator < Evaluator
   attr_accessor :users
 
+  DEFAULT_SCORE = 300
+
   def initialize(users)
+    if users.is_a? Array
+      users = users.inject({}) do |r, i|
+        r[i] = DEFAULT_SCORE; r
+      end
+    end
+
     @users = users
   end
 
   def evaluate(status)
     totalscore = 0
 
-    @keywords.each_pair do |hotnick, score|
+    @users.each_pair do |hotnick, score|
       if status.nick == hotnick
         totalscore += score
       end
@@ -181,9 +197,14 @@ class BayesianEvaluator < Evaluator
   end
 
   def evaluate(status)
-    p trait(status.message)
-
+    # TODO: implement !
     0
+  end
+
+  def feedback(status)
+    # TODO: implement !
+
+    p trait(status.message)
   end
 
 private
@@ -226,6 +247,11 @@ private
     trait
   end
 
+  # カイ２乗分布関数。あんまり自信ないけど多分bishopの実装は酷く間違っていると思う！！！
+  def self.chi2inv(x, k)
+    Math::exp(- x/2) / 2 * (1..(k/2-1)).inject(1.0) { |r, i| r * x * i }
+  end
+
 end
 
 # multiple evaluators combined
@@ -257,11 +283,17 @@ class App
   def initialize(opts)
     @opts = opts
 
-    @twit = Twitter::Base.new(@opts[:twit_user], @opts[:twit_pass])
     @timeline = Timeline.new
 
+    # setup Twitter client
+    @twit = Twitter::Base.new(@opts[:twit_user], @opts[:twit_pass])
+
+    @nick_friends = @twit.friends.inject([]) {|r, i| r << i.screen_name; r}
+
+    # setup evaluators
     @evaluator = EvaluatorComposer.new
     
+    # -- KeywordEvaluator
     if @opts[:keywords]
       keywords = @opts[:keywords]
       keywordeval = KeywordEvaluator.new(keywords)
@@ -269,21 +301,29 @@ class App
       @evaluator.add_evaluator(keywordeval)
     end
 
+    # -- ReplyEvaluator
     @evaluator.add_evaluator(
       ReplyEvaluator.new(@opts[:twit_user])
       )
 
+    # -- UserEvaluator
     if @opts[:hotnicks]
       hotnicks = @opts[:hotnicks]
-      usereval = KeywordEvaluator.new(hotnicks)
+      usereval = UserEvaluator.new(hotnicks)
 
       @evaluator.add_evaluator(usereval)
     end
 
+    # -- BayesianEvaluator
     @evaluator.add_evaluator(BayesianEvaluator.new)
   end
 
+  FRIENDS_SCORE = 100
+
   def update_twit 
+    time_start = Time.now
+
+    statuses = []
     @twit.timeline(:friends).each do |s|
       msg = CGI.unescapeHTML(REXML::Text::unnormalize(s.text))
       msg.gsub!(/http:\/\/tinyurl\.com\/[a-z0-9]{6}/) do |turl|
@@ -293,11 +333,40 @@ class App
       status = Status.new({
         :message => msg,
         :user => REXML::Text::unnormalize(s.user.name),
+        :nick => s.user.screen_name,
+        :score => FRIENDS_SCORE
+        })
+      statuses << status
+    end
+
+    @twit.timeline(:public).each do |s|
+      msg = CGI.unescapeHTML(REXML::Text::unnormalize(s.text))
+
+      status = Status.new({
+        :message => msg,
+        :user => REXML::Text::unnormalize(s.user.name),
         :nick => s.user.screen_name
         })
 
+      next if @nick_friends.include?(status.nick)
+      next unless status.is_Japanese?
+
+      statuses << status
+    end
+
+    time_timelineget = Time.now
+
+    statuses.each do |status|
       status.score = @evaluator.evaluate(status)
       @timeline.add_status(status)
+    end
+
+    time_evalend = Time.now
+    
+    if true
+      puts "performance stat:"
+      puts "  get timeline took:  #{time_timelineget - time_start} sec"
+      puts "  statuses eval took: #{time_evalend - time_timelineget} sec"
     end
   end
 
