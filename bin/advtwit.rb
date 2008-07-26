@@ -1,5 +1,5 @@
 #!/usr/bin/ruby
-# advtwit: twitter client for freaks $B>e5i<T8~$1(Btwitter$B%/%i%$%"%s%H!J>P(B)
+# advtwit: twitter client for freaks 上級者向けtwitterクライアント（笑)
 #
 #License::
 # Copyright (c) 2007, Kouhei Ueno # fixme: add here
@@ -33,6 +33,7 @@ require 'twitter'
 require 'nkf'
 require 'tinyurl'
 require 'rexml/document'
+require 'MeCab'
 
 module AdvTwit
 
@@ -163,6 +164,70 @@ class UserEvaluator < Evaluator
 
 end
 
+class BayesianEvaluator < Evaluator
+  
+  HINSI_WHITELIST = [
+    /^動詞/,
+    '形容詞',
+    '名詞',
+    ]
+
+  HINSI_BLACKLIST = [
+    '代名詞'
+    ]
+
+  def initialize
+    @tagger = MeCab::Tagger.new()
+  end
+
+  def evaluate(status)
+    p trait(status.message)
+
+    0
+  end
+
+private
+  
+  def trait(msg)
+    trait = {}
+    begin
+      node = @tagger.parseToNode(msg)
+
+      while node do
+        hinsi = node.feature
+
+        ok = false
+        HINSI_WHITELIST.each do |e|
+          if hinsi.match(e)
+            ok = true
+          end
+        end
+        HINSI_BLACKLIST.each do |e|
+          if hinsi.match(e)
+            ok = false
+          end
+        end
+
+        if ok
+          unless trait[node.surface]
+            trait[node.surface] = 1
+          else
+            trait[node.surface] += 1
+          end
+        end
+
+        node = node.next
+      end
+    rescue => e
+      p e
+      puts "error"
+    end
+
+    trait
+  end
+
+end
+
 # multiple evaluators combined
 # TODO: better name???
 class EvaluatorComposer < Evaluator
@@ -214,6 +279,8 @@ class App
 
       @evaluator.add_evaluator(usereval)
     end
+
+    @evaluator.add_evaluator(BayesianEvaluator.new)
   end
 
   def update_twit 
