@@ -16,6 +16,8 @@ MeCab/Ruby and SQLite3/Ruby are also required.
 
 edit etc/advtwit.cfg.rb using your favorite editor.
 
+mkdir var (for storing advtwit.db)
+
 while true; do bin/advtwit.rb; sleep 100; done
 
 == Copyright
