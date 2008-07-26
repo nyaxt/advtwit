@@ -26,6 +26,8 @@
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
+CLEAR_DB = false
+
 $KCODE = 'u'
 
 # for loading cfg file
@@ -40,11 +42,12 @@ require 'rexml/document'
 require 'MeCab'
 require 'sqlite3'
 require 'date'
+require 'term/ansicolor'
 
 module AdvTwit
 
 class Status
-  attr_accessor :id, :time, :username, :nick, :message, :timeline, :score
+  attr_accessor :id, :time, :username, :nick, :message, :timeline, :score, :traits
 
   TL_PUBLIC = 0
   TL_FRIENDS = 1
@@ -86,8 +89,8 @@ class Timeline
   attr_reader :dbfile
   attr_accessor :statuses
 
-  def initialize(dbfile)
-    @dbfile = dbfile
+  def initialize(db)
+    @db = db
 
     init_db
   end
@@ -99,23 +102,42 @@ class Timeline
       @db.execute('insert into timeline values(?, ?, ?, ?, ?, ?, ?);',
         status.id, status.time, status.nick, status.username, status.message, status.timeline, status.score
         );
+
+      return true
     rescue SQLite3::SQLException => e
       # puts "ignoreing error: #{e.inspect}"
+
+      return false
     end
   end
 
   def console_out
-    @db.execute('select * from timeline order by time desc').each do |row|
+    @db.execute('select * from timeline where score > 80 order by time desc limit 20').each do |row|
+      status = row2status(row)
+      case
+      when status.score > 300
+        print Term::ANSIColor::bold
+        print Term::ANSIColor::red
+      when status.score > 200
+        print Term::ANSIColor::bold
+        print Term::ANSIColor::blue
+      when status.score > 105
+        print Term::ANSIColor::bold
+      end
+
       puts row2status(row).to_s
+      print Term::ANSIColor::reset
     end
   end
 
 private
   def init_db
-    @db = SQLite3::Database.new(@dbfile)
+    begin
+      @db.execute('drop table timeline') if CLEAR_DB
+    rescue SQLite3::SQLException => e
+    end
 
     begin
-      # @db.execute('drop table timeline');
       @db.execute <<END
       create table timeline (
         id INTEGER UNIQUE,
@@ -242,6 +264,7 @@ class UserEvaluator < Evaluator
 end
 
 class BayesianEvaluator < Evaluator
+  FACTOR = 300
   
   HINSI_WHITELIST = [
     /^動詞/,
@@ -253,25 +276,88 @@ class BayesianEvaluator < Evaluator
     '代名詞'
     ]
 
-  def initialize
+  def initialize(db)
+    @db = db
+    init_db
+
     @tagger = MeCab::Tagger.new()
   end
 
   def evaluate(status)
-    # TODO: implement !
-    0
+    status.traits = analyze_traits(status.message) unless status.traits
+    
+    ham = 1; spam = 1
+    status.traits.each_pair do |k, v|
+      s = 1; x = 0.8
+      p = 0; n = 0
+      @db.execute('select score, ntimes from bayes_wordlist where word = ?;') do |row|
+        p = (row[0].to_f - 50) / 500
+        n = row[1].to_i
+      end
+
+      f = (s*x + n*p).to_f / (s + n)
+      
+      ham *= f
+      spam *= 1.0 - f
+    end
+
+    numtraits = status.traits.size
+    ham = BayesianEvaluator.chi2inv(ham, 2 * numtraits)
+    spam = BayesianEvaluator.chi2inv(spam, 2 * numtraits)
+
+    (ham - spam) / 2 * FACTOR
   end
 
   def feedback(status)
-    # TODO: implement !
+    status.traits = analyze_traits(status.message) unless status.traits
 
-    p trait(status.message)
+    status.traits.each_pair do |k, v|
+      score = 0
+      ntimes = 1
+
+      begin
+        @db.execute('select score, ntimes from bayes_wordlist where word = ?;') do |row|
+          score += row[0].to_i
+          ntimes += row[1].to_i
+        end
+
+        if ntimes == 1
+          @db.execute('insert into bayes_wordlist values(?, ?);', k, v * status.score, 1)
+        else
+          @db.execute('update bayes_wordlist set score = ?, ntimes = ? where word = ?;', score, ntimes, word)
+        end
+      rescue SQLite3::SQLException => e
+        puts "error while inserting a word into wordlist: #{e.inspect}"
+      end
+    end
   end
 
 private
+
+  def init_db
+    begin
+      @db.execute('drop table bayes_wordlist') if CLEAR_DB
+    rescue SQLite3::SQLException => e
+    end
+
+    begin
+      @db.execute <<END
+      create table bayes_wordlist (
+        word TEXT,
+        score INTEGER,
+        ntimes INTEGER
+      );
+END
+
+      puts "a new table (for bayesian filtering) has been created"
+    rescue SQLite3::SQLException => e
+      # table already existed
+    end
+  end
   
-  def trait(msg)
-    trait = {}
+  # move this to Status class
+  def analyze_traits(msg)
+    traits = {}
     begin
       node = @tagger.parseToNode(msg)
 
@@ -291,10 +377,10 @@ private
         end
 
         if ok
-          unless trait[node.surface]
-            trait[node.surface] = 1
+          unless traits[node.surface]
+            traits[node.surface] = 1
           else
-            trait[node.surface] += 1
+            traits[node.surface] += 1
           end
         end
 
@@ -305,7 +391,7 @@ private
       puts "error"
     end
 
-    trait
+    traits
   end
 
   # カイ２乗分布関数。あんまり自信ないけど多分bishopの実装は酷く間違っていると思う！！！
@@ -344,7 +430,11 @@ class App
   def initialize(opts)
     @opts = opts
 
-    @timeline = Timeline.new(@opts[:dbfile])
+    # open sqlite db
+    @db = SQLite3::Database.new(@opts[:dbfile])
+
+    # setup Timeline
+    @timeline = Timeline.new(@db)
 
     # setup Twitter client
     @twit = Twitter::Base.new(@opts[:twit_nick], @opts[:twit_pass])
@@ -376,10 +466,10 @@ class App
     end
 
     # -- BayesianEvaluator
-    @evaluator.add_evaluator(BayesianEvaluator.new)
+    @evaluator.add_evaluator(BayesianEvaluator.new(@db))
   end
 
-  FRIENDS_SCORE = 100
+  FRIENDS_SCORE = 100 # FIXME: move this to friends evaluator
 
   def update_twit 
     time_start = Time.now
@@ -425,7 +515,9 @@ class App
 
     statuses.uniq.each do |status|
       status.score += @evaluator.evaluate(status)
-      @timeline.add_status(status)
+      if @timeline.add_status(status)
+        @evaluator.feedback(status)
+      end
     end
 
     time_evalend = Time.now
