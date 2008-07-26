@@ -1,44 +1,50 @@
 #!/usr/bin/env ruby
-# advtwit: twitter client for freaks 上級者向けtwitterクライアント（笑)
+# advtwit: twitter client for freaks
+#          上級者向けtwitterクライアント（笑)
 #
-#License::
-# Copyright (c) 2007, Kouhei Ueno # fixme: add here
-# 
-# All rights reserved.
-# 
-# Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
-# 
-#     * Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
-#     * Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
-#     * Neither the name of the nyaxtstep.com nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
-# 
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-# A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
-# CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-# EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-# PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-# PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-# LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-# NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-# SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+# License::
+#  Copyright (c) 2008, Kouhei Ueno
+#  
+#  All rights reserved.
+#  
+#  Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+#  
+#      * Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+#      * Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+#      * Neither the name of the nyaxtstep.com nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+#  
+#  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+#  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+#  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+#  A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+#  CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+#  EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+#  PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+#  PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+#  LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+#  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+#  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
 $KCODE = 'u'
 
+# for loading cfg file
+$: << '../etc'
+$: << 'etc'
+
 require 'rubygems'
-require 'pit'
 require 'twitter'
 require 'nkf'
 require 'tinyurl'
 require 'rexml/document'
 require 'MeCab'
+require 'sqlite3'
+require 'date'
 
 module AdvTwit
 
 class Status
-  attr_accessor :user, :nick, :message, :score
+  attr_accessor :time, :username, :nick, :message, :score
 
   def initialize(hash)
     # atode kaku
@@ -48,13 +54,15 @@ class Status
     end
 =end
     
-    @user = hash[:user]
+    @time = hash[:time]
+    @username = hash[:username]
     @nick = hash[:nick]
     @message = hash[:message]
+    @score = hash[:score] || 0
   end
 
   def to_s 
-    "#{@user} (#{nick}): #{message} (#{score})"
+    "#{@username} (#{nick}): #{message} (#{score})"
   end
 
   def inspect; to_s; end
@@ -66,21 +74,50 @@ class Status
 end
 
 class Timeline
+  attr_reader :dbfile
   attr_accessor :statuses
 
-  def initialize
+  def initialize(dbfile)
+    @dbfile = dbfile
+
     @statuses = []
+
+    init_db
   end
 
   def add_status(status)
     status = Status.new(status) unless status.is_a? Status
 
+    @db.execute('insert into timeline values(?, ?, ?, ?, ?);',
+      status.time, status.nick, status.username, status.message, status.score
+      );
     @statuses << status
   end
 
   def console_out
     @statuses.each do |status|
       puts status.to_s
+    end
+  end
+
+private
+  def init_db
+    @db = SQLite3::Database.new(@dbfile)
+
+    begin
+      @db.execute <<END
+      create table timeline (
+        time INTEGER,
+        nick TEXT,
+        username TEXT,
+        message TEXT,
+        score INTEGER
+      );
+END
+      puts "new table has been created"
+    rescue SQLite3::SQLException => e
+      p e
+      # table already existed
     end
   end
 
@@ -152,24 +189,24 @@ end
 
 # scores if status has been post by specific user
 class UserEvaluator < Evaluator
-  attr_accessor :users
+  attr_accessor :usernames
 
   DEFAULT_SCORE = 300
 
-  def initialize(users)
-    if users.is_a? Array
-      users = users.inject({}) do |r, i|
+  def initialize(usernames)
+    if usernames.is_a? Array
+      usernames = usernames.inject({}) do |r, i|
         r[i] = DEFAULT_SCORE; r
       end
     end
 
-    @users = users
+    @usernames = usernames
   end
 
   def evaluate(status)
     totalscore = 0
 
-    @users.each_pair do |hotnick, score|
+    @usernames.each_pair do |hotnick, score|
       if status.nick == hotnick
         totalscore += score
       end
@@ -283,10 +320,10 @@ class App
   def initialize(opts)
     @opts = opts
 
-    @timeline = Timeline.new
+    @timeline = Timeline.new(@opts[:dbfile])
 
     # setup Twitter client
-    @twit = Twitter::Base.new(@opts[:twit_user], @opts[:twit_pass])
+    @twit = Twitter::Base.new(@opts[:twit_nick], @opts[:twit_pass])
 
     @nick_friends = @twit.friends.inject([]) {|r, i| r << i.screen_name; r}
 
@@ -303,7 +340,7 @@ class App
 
     # -- ReplyEvaluator
     @evaluator.add_evaluator(
-      ReplyEvaluator.new(@opts[:twit_user])
+      ReplyEvaluator.new(@opts[:twit_nick])
       )
 
     # -- UserEvaluator
@@ -332,7 +369,8 @@ class App
 
       status = Status.new({
         :message => msg,
-        :user => REXML::Text::unnormalize(s.user.name),
+        :time => DateTime.parse(s.created_at),
+        :username => REXML::Text::unnormalize(s.user.name),
         :nick => s.user.screen_name,
         :score => FRIENDS_SCORE
         })
@@ -344,7 +382,8 @@ class App
 
       status = Status.new({
         :message => msg,
-        :user => REXML::Text::unnormalize(s.user.name),
+        :time => DateTime.parse(s.created_at),
+        :username => REXML::Text::unnormalize(s.user.name),
         :nick => s.user.screen_name
         })
 
@@ -357,7 +396,7 @@ class App
     time_timelineget = Time.now
 
     statuses.each do |status|
-      status.score = @evaluator.evaluate(status)
+      status.score += @evaluator.evaluate(status)
       @timeline.add_status(status)
     end
 
@@ -379,18 +418,9 @@ end
 
 end
 
-opts = {}
-unless false #opts[:twit_user] and opts[:twit_pass]
-  credentials = Pit.get("advtwit", :require => {
-    "twit_user" => "twitter username",
-    "twit_pass" => "twitter password",
-    })
-
-  opts[:twit_user] ||= credentials["twit_user"]
-  opts[:twit_pass] ||= credentials["twit_pass"]
+unless $advtwit_opts
+  require ARGV[0] || 'advtwit.cfg.rb'
 end
-opts[:keywords] = ['advtwit', 'nyaxt']
-opts[:hotnicks] = ['nyaxt', 'syou6162', 'showyou']
 
-app = AdvTwit::App.new(opts)
+app = AdvTwit::App.new($advtwit_opts)
 app.main
