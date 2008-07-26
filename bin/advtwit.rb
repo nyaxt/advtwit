@@ -44,7 +44,7 @@ require 'date'
 module AdvTwit
 
 class Status
-  attr_accessor :time, :username, :nick, :message, :timeline, :score
+  attr_accessor :id, :time, :username, :nick, :message, :timeline, :score
 
   TL_PUBLIC = 0
   TL_FRIENDS = 1
@@ -57,6 +57,7 @@ class Status
     end
 =end
     
+    @id = hash[:id]
     @time = hash[:time]
     @username = hash[:username]
     @nick = hash[:nick]
@@ -66,13 +67,17 @@ class Status
   end
 
   def to_s 
-    "#{@username} (#{nick}): #{message} (#{score})"
+    "#{@username} (#{@nick}): #{@message} (#{@score})"
   end
 
   def inspect; to_s; end
 
   def is_Japanese?
     not @message.match(/[あ-んア-ン]/).nil?
+  end
+
+  def eql?(other)
+    other.id == @id
   end
 
 end
@@ -90,9 +95,13 @@ class Timeline
   def add_status(status)
     status = Status.new(status) unless status.is_a? Status
 
-    @db.execute('insert into timeline values(?, ?, ?, ?, ?, ?);',
-      status.time, status.nick, status.username, status.message, status.timeline, status.score
-      );
+    begin
+      @db.execute('insert into timeline values(?, ?, ?, ?, ?, ?, ?);',
+        status.id, status.time, status.nick, status.username, status.message, status.timeline, status.score
+        );
+    rescue SQLite3::SQLException => e
+      # puts "ignoreing error: #{e.inspect}"
+    end
   end
 
   def console_out
@@ -106,32 +115,33 @@ private
     @db = SQLite3::Database.new(@dbfile)
 
     begin
-      @db.execute('drop table timeline');
+      # @db.execute('drop table timeline');
       @db.execute <<END
       create table timeline (
+        id INTEGER UNIQUE,
         time INTEGER,
         nick TEXT,
         username TEXT,
         message TEXT,
-        type INTEGER,
+        timeline INTEGER,
         score INTEGER
       );
 END
-      puts "new table has been created"
+      puts "a new table has been created"
     rescue SQLite3::SQLException => e
-      p e
       # table already existed
     end
   end
 
   def row2status(row)
     Status.new({
-      :time => DateTime.parse(row[0]),
-      :nick => row[1],
-      :username => row[2],
-      :message => row[3],
-      :type => row[4].to_i,
-      :score => row[5].to_i
+      :id => row[0],
+      :time => DateTime.parse(row[1]),
+      :nick => row[2],
+      :username => row[3],
+      :message => row[4],
+      :timeline => row[5].to_i,
+      :score => row[6].to_i
       })
   end
 
@@ -382,6 +392,7 @@ class App
       end
 
       status = Status.new({
+        :id => s.id,
         :message => msg,
         :time => DateTime.parse(s.created_at),
         :username => REXML::Text::unnormalize(s.user.name),
@@ -396,6 +407,7 @@ class App
       msg = CGI.unescapeHTML(REXML::Text::unnormalize(s.text))
 
       status = Status.new({
+        :id => s.id,
         :message => msg,
         :time => DateTime.parse(s.created_at),
         :username => REXML::Text::unnormalize(s.user.name),
@@ -411,7 +423,7 @@ class App
 
     time_timelineget = Time.now
 
-    statuses.each do |status|
+    statuses.uniq.each do |status|
       status.score += @evaluator.evaluate(status)
       @timeline.add_status(status)
     end
