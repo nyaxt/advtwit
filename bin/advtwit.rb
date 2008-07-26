@@ -44,7 +44,10 @@ require 'date'
 module AdvTwit
 
 class Status
-  attr_accessor :time, :username, :nick, :message, :score
+  attr_accessor :time, :username, :nick, :message, :timeline, :score
+
+  TL_PUBLIC = 0
+  TL_FRIENDS = 1
 
   def initialize(hash)
     # atode kaku
@@ -59,6 +62,7 @@ class Status
     @nick = hash[:nick]
     @message = hash[:message]
     @score = hash[:score] || 0
+    @timeline = hash[:timeline] || TL_PUBLIC
   end
 
   def to_s 
@@ -80,23 +84,20 @@ class Timeline
   def initialize(dbfile)
     @dbfile = dbfile
 
-    @statuses = []
-
     init_db
   end
 
   def add_status(status)
     status = Status.new(status) unless status.is_a? Status
 
-    @db.execute('insert into timeline values(?, ?, ?, ?, ?);',
-      status.time, status.nick, status.username, status.message, status.score
+    @db.execute('insert into timeline values(?, ?, ?, ?, ?, ?);',
+      status.time, status.nick, status.username, status.message, status.timeline, status.score
       );
-    @statuses << status
   end
 
   def console_out
-    @statuses.each do |status|
-      puts status.to_s
+    @db.execute('select * from timeline order by time desc').each do |row|
+      puts row2status(row).to_s
     end
   end
 
@@ -105,12 +106,14 @@ private
     @db = SQLite3::Database.new(@dbfile)
 
     begin
+      @db.execute('drop table timeline');
       @db.execute <<END
       create table timeline (
         time INTEGER,
         nick TEXT,
         username TEXT,
         message TEXT,
+        type INTEGER,
         score INTEGER
       );
 END
@@ -119,6 +122,17 @@ END
       p e
       # table already existed
     end
+  end
+
+  def row2status(row)
+    Status.new({
+      :time => DateTime.parse(row[0]),
+      :nick => row[1],
+      :username => row[2],
+      :message => row[3],
+      :type => row[4].to_i,
+      :score => row[5].to_i
+      })
   end
 
 end
@@ -372,6 +386,7 @@ class App
         :time => DateTime.parse(s.created_at),
         :username => REXML::Text::unnormalize(s.user.name),
         :nick => s.user.screen_name,
+        :timeline => Status::TL_FRIENDS,
         :score => FRIENDS_SCORE
         })
       statuses << status
@@ -384,6 +399,7 @@ class App
         :message => msg,
         :time => DateTime.parse(s.created_at),
         :username => REXML::Text::unnormalize(s.user.name),
+        :timeline => Status::TL_PUBLIC,
         :nick => s.user.screen_name
         })
 
