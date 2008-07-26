@@ -1,0 +1,24 @@
+= advtwit.rb
+
+A twitter client for freaks.
+
+== Description
+
+This is a twitter client written in ruby optimized for twitter users having a LOT of friends.
+
+== Dependencies
+
+sudo gem install twitter tinyurl pit term-ansicolor
+
+MeCab/Ruby and SQLite3/Ruby are also required.
+
+== Usage
+
+edit etc/advtwit.cfg.rb using your favorite editor.
+
+while true; do bin/advtwit.rb; sleep 100; done
+
+== Copyright
+
+Author:: Kouhei Ueno <ueno@nyaxtstep.com>
+Copyright:: Copyright (c) 2008 Kouhei Ueno

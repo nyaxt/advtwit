@@ -53,20 +53,12 @@ class Status
   TL_FRIENDS = 1
 
   def initialize(hash)
-    # atode kaku
-=begin
     hash.each_pair do |k, v|
-      
+      instance_variable_set("@#{k}", v)
     end
-=end
     
-    @id = hash[:id]
-    @time = hash[:time]
-    @username = hash[:username]
-    @nick = hash[:nick]
-    @message = hash[:message]
-    @score = hash[:score] || 0
-    @timeline = hash[:timeline] || TL_PUBLIC
+    @score ||= 0
+    @timeline ||= TL_PUBLIC
   end
 
   def to_s 
