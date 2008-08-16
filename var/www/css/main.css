@@ -1,0 +1,57 @@
+#statuses_container {
+  border: 0.1em solid black;
+  background-color: #eee;
+}
+
+#statuses_container .status {
+  position: relative;
+  clear: left;
+
+  border-bottom: 0.1em solid #ccc;
+  padding: 0.2em;
+}
+
+#statuses_container .a {
+  background-color: #eef;
+}
+
+#statuses_container .b {
+  background-color: #fee;
+}
+
+#statuses_container img.userimg {
+  float: left;
+}
+
+#statuses_container div.msgpart {
+  
+}
+
+#statuses_container div.footer {
+  font-size: 80%;
+  color: #333; 
+}
+
+#statuses_container div.footer span {
+  margin: 0 0.1em;
+  padding: 0.1em 0.1em;
+}
+
+#statuses_container div.footer span.created_at {
+  position: absolute;
+
+	bottom: 0.5ex;
+	right: 5px;
+	
+	color: gray;
+}
+
+#statuses_container div.footer span.score {
+  background-color: #fff;
+
+  border: 0.1em solid #999;
+}
+
+#statuses_container div.clear {
+  clear: left;
+}
