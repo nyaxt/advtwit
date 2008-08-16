@@ -4,30 +4,51 @@ require 'rubygems'
 require 'webrick'
 require 'webrick/httpproxy'
 
+$: << '.'
+$: << './bin'
+require 'advtwit'
+
 module AdvTwit
 
 class AdvTwitServlet < WEBrick::HTTPServlet::AbstractServlet
-  def initialize(server, local_path)
-    super
-    @local_path = local_path
+  SERVLETROOT = 'atw'
+
+  def initialize(server, core)
+    @core = core
   end
 
   def do_GET(req, res)
-    if @local_path =~ /^statuses\/advtwit_timeline.(\d+)/
-      res.body = $1 
+    if req.path =~ /^\/#{SERVLETROOT}\/statuses\/advtwit_timeline.(\w+)/
+      do_timeline(req, res, $1)
     else
-      res.body = "TODOTODO"
+      res.body = req.path
     end
 
-    res["content-type"] = "text/plain"
+    res['content-type'] = 'text/plain'
   end
+
+  def do_timeline(req, res, format)
+    case format
+    when 'xml'
+      res.body = 'todo'
+      res['content-type'] = 'text/plain'
+    when 'json'
+      res.body = @core.timeline.to_json
+      res['content-type'] = 'text/javascript+json; charset=utf-8'
+    else
+      res.body = @core.timeline.to_s
+      res['content-type'] = 'text/plain'
+    end
+  end
+
 end
 
 class ProxyServer < WEBrick::HTTPProxyServer
-  def initialize(settings)
+
+  def initialize(settings, core)
     super settings
 
-    mount('/atw', AdvTwitServlet)
+    mount('/' + AdvTwitServlet::SERVLETROOT, AdvTwitServlet, core)
   end
 
   def proxy_service(req, res)
@@ -56,18 +77,29 @@ class ProxyServer < WEBrick::HTTPProxyServer
     res.body = "gotcha!"
     res['Content-Type'] = 'text/plain'
   end
-
 end
 
+end # of module AdvTwit
+
+if __FILE__ == $0
+  core = AdvTwit::App.new($advtwit_opts)
+
+  Thread.start {
+    loop do
+      core.update_twit
+      puts "loaded latest tweets! :-)"
+      sleep 180
+    end
+  }
+
+  s = AdvTwit::ProxyServer.new({
+    :DocumentRoot => 'var/www',
+    :Port => 8000
+    }, core)
+
+  Signal.trap('INT') do
+    s.shutdown
+  end
+
+  s.start
 end
-
-s = AdvTwit::ProxyServer.new({
-  :DocumentRoot => 'var/www',
-  :Port => 8000
-  })
-
-Signal.trap('INT') do
-  s.shutdown
-end
-
-s.start

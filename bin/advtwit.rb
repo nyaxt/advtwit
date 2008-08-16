@@ -41,7 +41,6 @@ require 'tinyurl'
 require 'rexml/document'
 require 'MeCab'
 require 'sqlite3'
-require 'date'
 require 'term/ansicolor'
 
 module AdvTwit
@@ -66,6 +65,33 @@ class Status
   end
 
   def inspect; to_s; end
+
+  def to_json
+    <<END
+{
+  "user":{
+     "name":"#{REXML::Text::normalize(@username)}",
+     "location":"TODOTODO",
+     "url":"TODOTODO",
+     "description":"TODOTODO",
+     "followers_count":12345,
+     "profile_image_url":"TODOTODO",
+     "id":1234567,
+     "protected":false,
+     "screen_name":"#{@nick}"
+  },
+  "truncated":false,
+  "in_reply_to_status_id":null,
+  "source":"TODOTODO",
+  "created_at":"#{@time.rfc822}",
+  "id":#{@id},
+  "favorited":null,
+  "text":"#{REXML::Text::normalize(@message)}",
+  "in_reply_to_user_id":null,
+  "score":#{@score}
+}
+END
+  end
 
   def is_Japanese?
     not @message.match(/[あ-んア-ン]/).nil?
@@ -104,7 +130,7 @@ class Timeline
   end
 
   def console_out
-    @db.execute('select * from timeline where score > 80 order by time desc limit 20').each do |row|
+    @db.execute('select * from timeline where score > 80 order by time desc limit 20;').each do |row|
       status = row2status(row)
       case
       when status.score > 300
@@ -120,6 +146,33 @@ class Timeline
       puts row2status(row).to_s
       print Term::ANSIColor::reset
     end
+  end
+
+  def to_s(*options)
+    result = ''
+
+    for_each_status(*options) do |status|
+      result << status.to_s << "\n"
+    end
+
+    result
+  end
+
+  def to_json(*options)
+    result = '['
+    
+    first = true
+    for_each_status(*options) do |status|
+      if first
+        first = false
+      else
+        result << ','
+      end
+        
+      result << status.to_json
+    end
+
+    result << ']'
   end
 
 private
@@ -150,13 +203,21 @@ END
   def row2status(row)
     Status.new({
       :id => row[0],
-      :time => DateTime.parse(row[1]),
+      :time => Time.parse(row[1]),
       :nick => row[2],
       :username => row[3],
       :message => row[4],
       :timeline => row[5].to_i,
       :score => row[6].to_i
       })
+  end
+
+  def for_each_status(score_threshold = 80, max_statueses = 20)
+    @db.execute('select * from timeline where score > ? order by time desc limit ?;',
+      score_threshold, max_statueses).each do |row|
+      status = row2status(row)
+      yield status
+    end
   end
 
 end
@@ -476,7 +537,7 @@ class App
       status = Status.new({
         :id => s.id,
         :message => msg,
-        :time => DateTime.parse(s.created_at),
+        :time => Time.parse(s.created_at),
         :username => REXML::Text::unnormalize(s.user.name),
         :nick => s.user.screen_name,
         :timeline => Status::TL_FRIENDS,
@@ -491,7 +552,7 @@ class App
       status = Status.new({
         :id => s.id,
         :message => msg,
-        :time => DateTime.parse(s.created_at),
+        :time => Time.parse(s.created_at),
         :username => REXML::Text::unnormalize(s.user.name),
         :timeline => Status::TL_PUBLIC,
         :nick => s.user.screen_name
@@ -528,11 +589,13 @@ class App
   end
 end
 
-end
+end # of module AdvTwit
 
 unless $advtwit_opts
   require ARGV[0] || 'advtwit.cfg.rb'
 end
 
-app = AdvTwit::App.new($advtwit_opts)
-app.main
+if __FILE__ == $0
+  app = AdvTwit::App.new($advtwit_opts)
+  app.main
+end
