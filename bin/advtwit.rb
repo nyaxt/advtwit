@@ -39,6 +39,7 @@ require 'twitter'
 require 'nkf'
 require 'tinyurl'
 require 'rexml/document'
+require 'json'
 require 'MeCab'
 require 'sqlite3'
 require 'term/ansicolor'
@@ -46,10 +47,13 @@ require 'term/ansicolor'
 module AdvTwit
 
 class Status
-  attr_accessor :id, :time, :username, :nick, :message, :timeline, :score, :traits
-
   TL_PUBLIC = 0
   TL_FRIENDS = 1
+
+  attr_accessor :id, :time, :message, :source # FIXME: rename to text, created_at
+  attr_accessor :username, :userimg, :userloc, :userurl, :userid, :userprotected, :nick # FIXME: rename to screen_name
+  attr_accessor :in_reply_to_status_id, :in_reply_to_user_id
+  attr_accessor :score, :traits, :timeline
 
   def initialize(hash)
     hash.each_pair do |k, v|
@@ -58,6 +62,8 @@ class Status
     
     @score ||= 0
     @timeline ||= TL_PUBLIC
+    @in_reply_to_user_id ||= "null"
+    @in_reply_to_status_id ||= "null"
   end
 
   def to_s 
@@ -66,31 +72,30 @@ class Status
 
   def inspect; to_s; end
 
-  def to_json
-    <<END
-{
-  "user":{
-     "name":"#{REXML::Text::normalize(@username)}",
-     "location":"TODOTODO",
-     "url":"TODOTODO",
-     "description":"TODOTODO",
-     "followers_count":12345,
-     "profile_image_url":"TODOTODO",
-     "id":1234567,
-     "protected":false,
-     "screen_name":"#{@nick}"
-  },
-  "truncated":false,
-  "in_reply_to_status_id":null,
-  "source":"TODOTODO",
-  "created_at":"#{@time.rfc822}",
-  "id":#{@id},
-  "favorited":null,
-  "text":"#{REXML::Text::normalize(@message)}",
-  "in_reply_to_user_id":null,
-  "score":#{@score}
-}
-END
+  def to_json(*a)
+    {
+      'user' => {
+         'name' => REXML::Text::normalize(@username),
+         'location' => @userloc,
+         'url' => REXML::Text::normalize(@userurl),
+         'description' => "not available (advtwit proxy)",
+         'followers_count' => 123,
+         'profile_image_url' => REXML::Text::normalize(@userimg),
+         'id' => @userid,
+         'protected' => @userprotected,
+         'screen_name' => @nick
+      },
+      'truncated' => false,
+      'in_reply_to_status_id' => @in_reply_to_status_id,
+      "source" => REXML::Text::normalize(@source),
+      "created_at" => time.rfc822,
+      "id" => @id,
+      "favorited" => @fav?'true':'null',
+      "text" => REXML::Text::normalize(@message),
+      "in_reply_to_user_id" => in_reply_to_user_id,
+      "score" => @score,
+      "tltype" => timelinetype
+    }.to_json(*a)
   end
 
   def is_Japanese?
@@ -99,6 +104,17 @@ END
 
   def eql?(other)
     other.id == @id
+  end
+
+  def timelinetype
+    case @timeline
+    when TL_PUBLIC
+      'public'
+    when TL_FRIENDS
+      'friends'
+    else
+      'unknown'
+    end
   end
 
 end
@@ -113,12 +129,15 @@ class Timeline
     init_db
   end
 
-  def add_status(status)
-    status = Status.new(status) unless status.is_a? Status
+  def add_status(s)
+    s = Status.new(s) unless s.is_a? Status
 
     begin
-      @db.execute('insert into timeline values(?, ?, ?, ?, ?, ?, ?);',
-        status.id, status.time, status.nick, status.username, status.message, status.timeline, status.score
+      @db.execute('insert into timeline values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);',
+        s.id, s.time, s.message, s.source,
+        s.username, s.userimg, s.userloc, s.userurl, s.userid, s.userprotected ? "1" : "0", s.nick,
+        s.in_reply_to_status_id, s.in_reply_to_user_id,
+        s.score, s.timeline
         );
 
       return true
@@ -187,14 +206,25 @@ private
       create table timeline (
         id INTEGER UNIQUE,
         time INTEGER,
-        nick TEXT,
+        text TEXT,
+        source TEXT,
+        
         username TEXT,
-        message TEXT,
-        timeline INTEGER,
-        score INTEGER
+        userimg TEXT,
+        userloc TEXT,
+        userurl TEXT,
+        userid INTEGER,
+        userprotected INTEGER,
+        screen_name TEXT,
+        
+        in_reply_to_status_id INTEGER,
+        in_reply_to_user_id INTEGER,
+        
+        score INTEGER,
+        timeline INTEGER
       );
 END
-      puts "a new table has been created"
+      puts "new table 'timeline' has been created"
     rescue SQLite3::SQLException => e
       # table already existed
     end
@@ -202,13 +232,24 @@ END
 
   def row2status(row)
     Status.new({
-      :id => row[0],
+      :id => row[0].to_i,
       :time => Time.parse(row[1]),
-      :nick => row[2],
-      :username => row[3],
-      :message => row[4],
-      :timeline => row[5].to_i,
-      :score => row[6].to_i
+      :message => row[2],
+      :source => row[3],
+
+      :username => row[4],
+      :userimg => row[5],
+      :userloc => row[6],
+      :userurl => row[7],
+      :userid => row[8].to_i,
+      :userprotected => (row[9].to_i == 1),
+      :nick => row[10],
+
+      :in_reply_to_status_id => row[11].to_i,
+      :in_reply_to_user_id => row[12].to_i,
+
+      :score => row[13].to_i,
+      :timeline => row[14].to_i,
       })
   end
 
@@ -402,7 +443,7 @@ private
       );
 END
 
-      puts "a new table (for bayesian filtering) has been created"
+      puts "new table 'bayes_wordlist' has been created"
     rescue SQLite3::SQLException => e
       # table already existed
     end
@@ -529,34 +570,15 @@ class App
 
     statuses = []
     @twit.timeline(:friends).each do |s|
-      msg = CGI.unescapeHTML(REXML::Text::unnormalize(s.text))
-      msg.gsub!(/http:\/\/tinyurl\.com\/[a-z0-9]{6}/) do |turl|
-        Tinyurl.new(turl).original
-      end
+      status = conv_status(s)
 
-      status = Status.new({
-        :id => s.id,
-        :message => msg,
-        :time => Time.parse(s.created_at),
-        :username => REXML::Text::unnormalize(s.user.name),
-        :nick => s.user.screen_name,
-        :timeline => Status::TL_FRIENDS,
-        :score => FRIENDS_SCORE
-        })
+      status.score = FRIENDS_SCORE
+      status.timeline = Status::TL_FRIENDS
       statuses << status
     end
 
     @twit.timeline(:public).each do |s|
-      msg = CGI.unescapeHTML(REXML::Text::unnormalize(s.text))
-
-      status = Status.new({
-        :id => s.id,
-        :message => msg,
-        :time => Time.parse(s.created_at),
-        :username => REXML::Text::unnormalize(s.user.name),
-        :timeline => Status::TL_PUBLIC,
-        :nick => s.user.screen_name
-        })
+      status = conv_status(s)
 
       next if @nick_friends.include?(status.nick)
       next unless status.is_Japanese?
@@ -586,6 +608,32 @@ class App
     update_twit
 
     @timeline.console_out
+  end
+
+private
+  def conv_status(s)
+    text = CGI.unescapeHTML(REXML::Text::unnormalize(s.text))
+    text.gsub!(/http:\/\/tinyurl\.com\/[a-z0-9]{6}/) do |turl|
+      Tinyurl.new(turl).original
+    end
+
+    Status.new({
+      :id => s.id,
+      :time => Time.parse(s.created_at),
+      :message => text,
+      :source => s.source,
+
+      :username => REXML::Text::unnormalize(s.user.name),
+      :userimg => s.user.profile_image_url,
+      :userloc => s.user.location,
+      :userurl => s.user.url,
+      :userid => s.user.id,
+      :userprotected => s.user.protected,
+      :nick => s.user.screen_name,
+
+      :in_reply_to_status_id => s.in_reply_to_status_id,
+      :in_reply_to_user_id => s.in_reply_to_user_id,
+      })
   end
 end
 
