@@ -18,6 +18,12 @@ edit etc/advtwit.cfg.rb using your favorite editor.
 
 while true; do bin/advtwit.rb; sleep 100; done
 
+=== advtwit web client draft
+
+run bin/proxy.rb
+
+access http://localhost:8000
+
 == Copyright
 
 Author:: Kouhei Ueno <ueno@nyaxtstep.com>
