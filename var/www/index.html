@@ -7,36 +7,24 @@
     <link rel="stylesheet" type="text/css" href="css/reset.css">
     <link rel="stylesheet" type="text/css" href="css/main.css">
     <script type="text/javascript" src="js/jquery.js"></script>
-    <script type="text/javascript">
-      
-    </script>
+    <script type="text/javascript" src="js/main.js"></script>
   </head>
   <body>
     <div id='statuses_container'>
-      <div class='status a'>
-        <img class='userimg' src='http://s3.amazonaws.com/twitter_production/profile_images/58307029/l_netlab_08_normal.jpg' />
-        <div class='msgpart'>
-          <span class='message'>test message</span>
-          <div class='footer'>
-            <span class='nick'>nyaxt</span>/<span class='username'>Kouhei Ueno</span>
-            <span class='score'>score: 131</span>
-            <span class='created_at'>Sun, 17 Aug 2008 01:22:41 +0900</span>
-          </div>
-        </div>
-        <div class="clear"></div>
-      </div>
-      <div class='status b'>
-        <img class='userimg' src='http://s3.amazonaws.com/twitter_production/profile_images/58307029/l_netlab_08_normal.jpg' />
-        <div class='msgpart'>
-          <span class='message'>test message blah bjfkdajfkldsjaklfdjsakfjdajfksajfkldjsaklf;jdajfdkl;ajf;sajfkld;sajfkldsajfl;sajfsdajfkldsjakfldsjklfjds;fjdajfaslah asdjfkljdskajfdklsjfkajfkldjsakfjd;ajfklsdajfkldsajkfldsajklf;dsjaklf;djsaklfjdsajfd;afjla</span>
-          <div class='footer'>
-            <span class='nick'>nyaxt</span>/<span class='username'>Kouhei Ueno</span>
-            <span class='score'>score: 131</span>
-            <span class='created_at'>Sun, 17 Aug 2008 01:22:41 +0900</span>
-          </div>
-        </div>
-        <div class="clear"></div>
-      </div>
     </div>
+    <textarea id='template' style="display: none;">
+      <div class='status %ab%'>
+        <img class='userimg' src='%img%' />
+        <div class='msgpart'>
+          <span class='message'>%message%</span>
+          <div class='footer'>
+            <span class='nick'>%nick%</span>/<span class='username'>%username%</span>
+            <span class='score'>score: %score%</span>
+            <span class='created_at'>%created_at%</span>
+          </div>
+        </div>
+        <div class="clear"></div>
+      </div>
+    </textarea>
   </body>
 </html>
