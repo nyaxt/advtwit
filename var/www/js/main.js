@@ -30,10 +30,16 @@ $(function() {
     }
   }
 
-  function updateTimeline(json)
+  function updateTimelineJSON(json)
   {
     $.each(json, appendStatus);
+    setTimeout(updateTimeline, 10000);
   }
 
-  $.getJSON("/atw/statuses/advtwit_timeline.json", updateTimeline);
+  function updateTimeline()
+  {
+    $.getJSON("/atw/statuses/advtwit_timeline.json", updateTimelineJSON);
+  }
+
+  updateTimeline();
 })
