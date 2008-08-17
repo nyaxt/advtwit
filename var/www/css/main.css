@@ -7,7 +7,7 @@
   position: relative;
   clear: left;
 
-  border-bottom: 0.1em solid #ccc;
+  border-bottom: 0.1px solid #ccc;
   padding: 0.2em;
 }
 
@@ -15,19 +15,62 @@
   background-color: #eef;
 }
 
+#statuses_container .a .highscore {
+  background-color: #ddf;
+}
+
 #statuses_container .b {
   background-color: #fee;
 }
 
+#statuses_container .b .highscore {
+  background-color: #fdd;
+}
+
 #statuses_container img.userimg {
   float: left;
+  
+  border: 0.1em solid #999;
+
+  margin: 0.2em;
+}
+
+#statuses_container .lowscore img.userimg {
+  height: 16px;
+  width: 16px;
+}
+
+#statuses_container .highscore img.userimg {
+  height: 64px;
+  width: 64px;
 }
 
 #statuses_container div.msgpart {
-  
+  font-size: 80%;
+}
+
+#statuses_container .lowscore div.msgpart {
+  font-size: 60%;
+}
+
+#statuses_container .highscore div.msgpart {
+  font-size: 100%;
+  font-weight: bold; 
+
+  margin: 0.5em;
+}
+
+#statuses_container .veryhighscore div.msgpart {
+  font-size: 150%;
+  font-weight: bold; 
+
+  margin: 0.5em;
+  color: #336;
 }
 
 #statuses_container div.footer {
+  margin-top: 0.2em;
+
   font-size: 80%;
   color: #333; 
 }
