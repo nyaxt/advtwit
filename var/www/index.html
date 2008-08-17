@@ -10,6 +10,12 @@
     <script type="text/javascript" src="js/main.js"></script>
   </head>
   <body>
+    <div id='options'>
+      <input type='button' id='refresh' name='refresh' value='refresh'/>
+    </div>
+    <div id='postform'>
+      <textarea id='status'></textarea>
+    </div>
     <div id='statuses_container'>
     </div>
     <textarea id='template' style="display: none;">
@@ -18,7 +24,7 @@
         <div class='msgpart'>
           <span class='message'>%message%</span>
           <div class='footer'>
-            <span class='nick'>%nick%</span>/<span class='username'>%username%</span>
+            <span class='nick'>@%nick%</span>/<span class='username'>%username%</span>
             <span class='score'>score: %score%</span>
             <span class='created_at'>%created_at%</span>
           </div>

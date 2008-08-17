@@ -60,6 +60,25 @@ $(function() {
     {
       latestStatus = created_at; 
     }
+
+    var domst = $("#statuses_container").children().slice(0,1);
+    domst.hover(
+      function() {
+        $(this).addClass('onhover');
+      },
+      function() {
+        $(this).removeClass('onhover');
+      }
+    );
+
+    var domstimg = domst.find('img.userimg');
+    domstimg.click(function() {
+        var nick = $(this).parent().find('.nick').text();
+        var domtext = $("#status");
+        domtext.attr('value', nick + ' ' + domtext.attr('value'));
+      }
+    );
+
   }
 
   function deleteOldStatus()
