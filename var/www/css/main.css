@@ -1,6 +1,7 @@
 #options
 {
   width: 100%;
+  text-align: right;
 }
 
 #postform
@@ -17,6 +18,14 @@
 
   height: 3em;
   left: 1em; right: 1em;
+}
+
+#postform span
+{
+  font-size: 80%;
+  font-weight: bold;
+
+  text-align: left;
 }
 
 #statuses_container {
@@ -70,12 +79,22 @@
   width: 64px;
 }
 
+#statuses_container .onhover img.userimg {
+  height: 64px;
+  width: 64px;
+}
+
 #statuses_container div.msgpart {
   font-size: 80%;
 }
 
 #statuses_container .lowscore div.msgpart {
   font-size: 60%;
+}
+
+#statuses_container .onhover div.msgpart {
+  font-size: 100%;
+  margin: 0.5em;
 }
 
 #statuses_container .highscore div.msgpart {

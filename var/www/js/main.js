@@ -1,4 +1,6 @@
 $(function() {
+  // === timeline view
+
   function unescapeHTML(str)
   {
     return str.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>');
@@ -78,7 +80,6 @@ $(function() {
         domtext.attr('value', nick + ' ' + domtext.attr('value'));
       }
     );
-
   }
 
   function deleteOldStatus()
@@ -108,4 +109,14 @@ $(function() {
   }
 
   updateTimeline();
+
+  // === status textarea
+  function updateCharLeft()
+  {
+    var length = $(this).attr('value').length;
+    $('#statusleft').text((180 - length) + " characters left.");
+  }
+
+  $('#postform textarea#status').change(updateCharLeft);
+  $('#postform textarea#status').keydown(updateCharLeft);
 })
