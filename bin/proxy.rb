@@ -27,6 +27,14 @@ class AdvTwitServlet < WEBrick::HTTPServlet::AbstractServlet
     res['content-type'] = 'text/plain'
   end
 
+  def do_POST(req, res)
+    if req.path =~ /^\/#{SERVLETROOT}\/statuses\/update.(\w+)/
+      do_status_update(req, res, $1)
+    else
+      res.set_error(404)
+    end
+  end
+
   def do_timeline(req, res, format)
     query = {}
     query = parse_query(req.request_uri.query) if req.request_uri.query
@@ -37,13 +45,40 @@ class AdvTwitServlet < WEBrick::HTTPServlet::AbstractServlet
     options[:max_statuses]   = query['max_statuses'].to_i if query['max_statuses']
     options[:since]           = Time.parse(query['since'].gsub('+', ' ')) if query['since']
 
-    p options
-
     if options[:first_update]
       options[:max_statuses] = 200
       options[:since]         = @core.timeline.latest_post_time(options)
     end
 
+    result_timeline(options, res, format)
+  end
+
+  def do_status_update(req, res, format)
+    query = {}
+    query = parse_query(req.body) if req.body
+  
+    status = query['status']
+    
+    if status
+      @core.post_status_update status
+    end
+
+    @core.update_twit
+
+    res.body = 'status update success' # fixme
+    res['content-type'] = 'text/plain'
+  end
+
+private
+  def parse_query(querystr)
+    querystr.split('&').inject({}) do |r, i|
+      key, val = *i.split('=').map{|encoded| URI.decode(encoded)}
+      r[key] = val
+      r
+    end
+  end
+
+  def result_timeline(options, res, format)
     case format
     when 'xml'
       res.body = 'todo'
@@ -57,14 +92,6 @@ class AdvTwitServlet < WEBrick::HTTPServlet::AbstractServlet
     end
   end
 
-private
-  def parse_query(querystr)
-    querystr.split('&').inject({}) do |r, i|
-      key, val = *i.split('=').map{|encoded| URI.decode(encoded)}
-      r[key] = val
-      r
-    end
-  end
 end
 
 class ProxyServer < WEBrick::HTTPProxyServer
@@ -79,7 +106,7 @@ class ProxyServer < WEBrick::HTTPProxyServer
     # hook-ed here to add Twitter specific settings
     h['X-Twitter-Client'] = 'advtwit'
     h['X-Twitter-Client-Version'] = 'gittrunk'
-    h['X-Twitter-Client-URL'] = 'http://static.nyaxtstep.com/misc/advtwit.xml'
+    h['X-Twitter-Client-URL'] = CLIENTXMLURL
   end
 
   def proxy_service(req, res)

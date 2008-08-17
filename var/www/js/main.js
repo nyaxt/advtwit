@@ -76,8 +76,9 @@ $(function() {
     var domstimg = domst.find('img.userimg');
     domstimg.click(function() {
         var nick = $(this).parent().find('.nick').text();
-        var domtext = $("#status");
+        var domtext = $("#statustext");
         domtext.attr('value', nick + ' ' + domtext.attr('value'));
+        domtext.trigger('change');
       }
     );
   }
@@ -114,17 +115,55 @@ $(function() {
     if(firstUpdate) { firstUpdate = false; }
   }
 
-  $('input#refresh').click(refreshTimeline);
-
   refreshTimeline();
 
   // === status textarea
+  var domstat = $('#statusview');
   function updateCharLeft()
   {
     var length = $(this).attr('value').length;
-    $('#statusleft').text((180 - length) + " characters left.");
+    domstat.text((180 - length) + " characters left.");
   }
 
-  $('#postform textarea#status').change(updateCharLeft);
-  $('#postform textarea#status').keydown(updateCharLeft);
+  var domtext = $('#postform #statustext');
+  domtext.change(updateCharLeft);
+  domtext.blur(updateCharLeft);
+  domtext.focus(updateCharLeft);
+  domtext.keydown(updateCharLeft);
+
+  function updateStatusView(msg)
+  {
+    domstat.text(msg); 
+    domstat.fadeIn();
+  }
+
+  var domsubmit = $('#postform input#submit');
+  domsubmit.click(function() {
+    domsubmit.attr('disable', 'true');
+    domsubmit.attr('disable', 'true');
+
+    $.ajax({
+      type: 'POST',
+      url: 'atw/statuses/update.json',
+      data: 'status='+domtext.attr('value'),
+      dataType: 'text',
+      success: function(msg) {
+        domtext.attr('disable', 'false');
+        domtext.attr('value', '');
+        domsubmit.attr('disable', 'false');
+
+        updateStatusView(msg);
+
+        refreshTimeline();
+      },
+      error: function() {
+        domtext.attr('disable', 'false');
+        domsubmit.attr('disable', 'false');
+
+        updateStatusView('AJAX update failed');
+      }
+    });
+
+    return false;
+  });
 })

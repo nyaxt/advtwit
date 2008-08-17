@@ -33,18 +33,23 @@ $KCODE = 'u'
 # for loading cfg file
 $: << '../etc'
 $: << 'etc'
+$: << 'bin' << '.'
 
 require 'rubygems'
 require 'twitter'
 require 'nkf'
-require 'tinyurl'
 require 'rexml/document'
 require 'json'
 require 'MeCab'
 require 'sqlite3'
 require 'term/ansicolor'
+require 'untinyurl'
 
 module AdvTwit
+
+CLIENTXMLURL = 'http://static.nyaxtstep.com/misc/advtwit.xml'
+
+include UnTinyUrl
 
 class Status
   TL_PUBLIC = 0
@@ -73,7 +78,7 @@ class Status
   def inspect; to_s; end
 
   def to_json(*a)
-    {
+    p hash = {
       'user' => {
          'name' => REXML::Text::normalize(@username),
          'location' => @userloc,
@@ -95,7 +100,9 @@ class Status
       "in_reply_to_user_id" => in_reply_to_user_id,
       "score" => @score,
       "tltype" => timelinetype
-    }.to_json(*a)
+    }
+    
+    hash.to_json(*a)
   end
 
   def is_Japanese?
@@ -623,6 +630,15 @@ class App
     end
   end
 
+  def post_status_update(status)
+    http = Net::HTTP.new('twitter.com', 80)
+    req = Net::HTTP::Post.new('/statuses/update.json')
+    p req.body = "status=#{URI::encode(status)}&source=#{URI::encode(AdvTwit::CLIENTXMLURL)}"
+    req.basic_auth(@opts[:twit_nick], @opts[:twit_pass])
+
+    http.request req
+  end
+
   def main
     update_twit
 
@@ -633,7 +649,7 @@ private
   def conv_status(s)
     text = CGI.unescapeHTML(REXML::Text::unnormalize(s.text))
     text.gsub!(/http:\/\/tinyurl\.com\/[a-z0-9]{6}/) do |turl|
-      Tinyurl.new(turl).original
+      UnTinyUrl::untinyurl(turl)
     end
 
     Status.new({

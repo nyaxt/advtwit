@@ -1,3 +1,8 @@
+body
+{
+  background-color: #eee;
+}
+
 #options
 {
   width: 100%;
@@ -11,13 +16,23 @@
   text-align: center;
 }
 
-#postform textarea
+#postform #statustext
 {
   font-size: 150%;
-  width: 98%;
+  width: 99%;
 
   height: 3em;
   left: 1em; right: 1em;
+}
+
+#postform input[type="submit"]
+{
+  width: 99%;
+  
+  font-size: 100%;
+
+  background-color:#808080;color:#FFF;
+  font-weight:bold;border: 1px solid black;cursor:pointer;
 }
 
 #postform span
@@ -29,7 +44,9 @@
 }
 
 #statuses_container {
-  border: 0.1em solid black;
+  border-top: 0.1em solid black;
+  border-bottom: 0.1em solid black;
+  
   background-color: #eee;
 }
 
