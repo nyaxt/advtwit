@@ -8,7 +8,7 @@ This is a twitter client written in ruby optimized for twitter users having a LO
 
 == Dependencies
 
-sudo gem install twitter tinyurl pit term-ansicolor json
+sudo gem install twitter pit term-ansicolor json
 
 MeCab/Ruby and SQLite3/Ruby are also required.
 

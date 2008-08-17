@@ -213,6 +213,8 @@ class Timeline
         return Time.at(row[0].to_i)
       end
     end
+
+    return Time.at(0)
   end
 
 private
