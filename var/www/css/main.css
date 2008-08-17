@@ -91,12 +91,12 @@ body
   width: 16px;
 }
 
-#statuses_container .highscore img.userimg {
-  height: 64px;
-  width: 64px;
+#statuses_container .onhover img.userimg {
+  height: 48px;
+  width: 48px;
 }
 
-#statuses_container .onhover img.userimg {
+#statuses_container .highscore img.userimg {
   height: 64px;
   width: 64px;
 }
@@ -110,8 +110,7 @@ body
 }
 
 #statuses_container .onhover div.msgpart {
-  font-size: 100%;
-  margin: 0.5em;
+  font-size: 80%;
 }
 
 #statuses_container .highscore div.msgpart {
