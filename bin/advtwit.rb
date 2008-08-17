@@ -134,7 +134,7 @@ class Timeline
 
     begin
       @db.execute('insert into timeline values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);',
-        s.id, s.time, s.message, s.source,
+        s.id, s.time.to_i, s.message, s.source,
         s.username, s.userimg, s.userloc, s.userurl, s.userid, s.userprotected ? "1" : "0", s.nick,
         s.in_reply_to_status_id, s.in_reply_to_user_id,
         s.score, s.timeline
@@ -167,21 +167,21 @@ class Timeline
     end
   end
 
-  def to_s(*options)
+  def to_s(options = {})
     result = ''
 
-    for_each_status(*options) do |status|
+    for_each_status(options) do |status|
       result << status.to_s << "\n"
     end
 
     result
   end
 
-  def to_json(*options)
+  def to_json(options = {})
     result = '['
     
     first = true
-    for_each_status(*options) do |status|
+    for_each_status(options) do |status|
       if first
         first = false
       else
@@ -233,7 +233,7 @@ END
   def row2status(row)
     Status.new({
       :id => row[0].to_i,
-      :time => Time.parse(row[1]),
+      :time => Time.at(row[1].to_i),
       :message => row[2],
       :source => row[3],
 
@@ -253,11 +253,21 @@ END
       })
   end
 
-  def for_each_status(score_threshold = 80, max_statueses = 20)
-    @db.execute('select * from timeline where score > ? order by time desc limit ?;',
-      score_threshold, max_statueses).each do |row|
-      status = row2status(row)
-      yield status
+  def for_each_status(options = {})
+    options = {:score_threshold => 80, :max_statueses => 20, :since => nil}.merge(options)
+
+    if options[:since]
+      @db.execute('select * from timeline where score > ? and time > ? order by time asc limit ?;',
+        options[:score_threshold], options[:since].to_i, options[:max_statueses]).each do |row|
+        status = row2status(row)
+        yield status
+      end
+    else
+      @db.execute('select * from timeline where score > ? order by time asc limit ?;',
+        options[:score_threshold], options[:max_statueses]).each do |row|
+        status = row2status(row)
+        yield status
+      end
     end
   end
 

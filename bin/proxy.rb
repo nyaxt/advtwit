@@ -28,19 +28,38 @@ class AdvTwitServlet < WEBrick::HTTPServlet::AbstractServlet
   end
 
   def do_timeline(req, res, format)
+    query = {}
+    query = parse_query(req.request_uri.query) if req.request_uri.query
+
+    p query
+
+    options = {}
+    options[:score_threshold] = query['score_threshold'].to_i if query['score_threshold']
+    options[:max_statueses]   = query['max_statuses'].to_i if query['max_statuses']
+    options[:since]           = Time.parse(query['since'].gsub('+', ' ')) if query['since']
+    p options 
+
     case format
     when 'xml'
       res.body = 'todo'
       res['content-type'] = 'text/plain'
     when 'json'
-      res.body = @core.timeline.to_json
+      res.body = @core.timeline.to_json(options)
       res['content-type'] = 'text/javascript+json; charset=utf-8'
     else
-      res.body = @core.timeline.to_s
+      res.body = @core.timeline.to_s(options)
       res['content-type'] = 'text/plain'
     end
   end
 
+private
+  def parse_query(querystr)
+    querystr.split('&').inject({}) do |r, i|
+      key, val = *i.split('=').map{|encoded| URI.decode(encoded)}
+      r[key] = val
+      r
+    end
+  end
 end
 
 class ProxyServer < WEBrick::HTTPProxyServer
