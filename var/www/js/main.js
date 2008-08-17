@@ -87,11 +87,17 @@ $(function() {
     $("#statuses_container").children().slice(200).remove();
   }
 
+  var updateTimelineTimerId = -1;
   function updateTimelineJSON(json)
   {
+    if(updateTimelineTimerId != -1)
+    {
+      clearTimeout(updateTimelineTimerId); 
+    }
+
     $.each(json, appendStatus);
     deleteOldStatus();
-    setTimeout(updateTimeline, 10000);
+    updateTimelineTimerId = setTimeout(updateTimeline, 10000);
   }
 
   var firstUpdate = true;
@@ -107,6 +113,8 @@ $(function() {
 
     if(firstUpdate) { firstUpdate = false; }
   }
+
+  $('input#refresh').click(updateTimeline);
 
   updateTimeline();
 
