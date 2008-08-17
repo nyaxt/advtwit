@@ -194,6 +194,14 @@ class Timeline
     result << ']'
   end
 
+  def latest_post_time(options = {})
+    options = {:score_threshold => 80, :max_statuses => 20, :since => nil}.merge(options)
+
+    @db.execute('select time from timeline where score > ? order by time desc limit 1 offset ?;', options[:score_threshold], options[:max_statuses]) do |row|
+      return row[0].to_i
+    end
+  end
+
 private
   def init_db
     begin
@@ -254,17 +262,18 @@ END
   end
 
   def for_each_status(options = {})
-    options = {:score_threshold => 80, :max_statueses => 20, :since => nil}.merge(options)
+    options = {:score_threshold => 80, :max_statuses => 20, :since => nil}.merge(options)
 
+    # FIXME: use SQLite3::Statement
     if options[:since]
       @db.execute('select * from timeline where score > ? and time > ? order by time asc limit ?;',
-        options[:score_threshold], options[:since].to_i, options[:max_statueses]).each do |row|
+        options[:score_threshold], options[:since].to_i, options[:max_statuses]).each do |row|
         status = row2status(row)
         yield status
       end
     else
       @db.execute('select * from timeline where score > ? order by time asc limit ?;',
-        options[:score_threshold], options[:max_statueses]).each do |row|
+        options[:score_threshold], options[:max_statuses]).each do |row|
         status = row2status(row)
         yield status
       end

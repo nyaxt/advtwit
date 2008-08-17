@@ -74,14 +74,18 @@ $(function() {
     setTimeout(updateTimeline, 10000);
   }
 
+  var firstUpdate = true;
   function updateTimeline()
   {
     $.getJSON("/atw/statuses/advtwit_timeline.json",
       {
+        'first_update':firstUpdate,
         'since':latestStatus.toGMTString()
       },
       updateTimelineJSON
       );
+
+    if(firstUpdate) { firstUpdate = false; }
   }
 
   updateTimeline();

@@ -31,13 +31,18 @@ class AdvTwitServlet < WEBrick::HTTPServlet::AbstractServlet
     query = {}
     query = parse_query(req.request_uri.query) if req.request_uri.query
 
-    p query
-
     options = {}
+    options[:first_update]    = query['first_update'] == 'true' if query['first_update']
     options[:score_threshold] = query['score_threshold'].to_i if query['score_threshold']
-    options[:max_statueses]   = query['max_statuses'].to_i if query['max_statuses']
+    options[:max_statuses]   = query['max_statuses'].to_i if query['max_statuses']
     options[:since]           = Time.parse(query['since'].gsub('+', ' ')) if query['since']
-    p options 
+
+    p options
+
+    if options[:first_update]
+      options[:max_statuses] = 200
+      options[:since]         = @core.timeline.latest_post_time(options)
+    end
 
     case format
     when 'xml'
