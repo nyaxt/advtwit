@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<client>
+    <name>advtwit</name>
+    <version>git trunk</version>
+    <author>
+        <name>Kouhei Ueno</name>
+        <email>ueno@nyaxtstep.com</email>
+        <twitter>nyaxt</twitter>
+    </author>
+    <url>http://github.com/nyaxt/advtwit/tree</url>
+    <twitter>nyaxt</twitter>
+    <description><![CDATA[
+      twitter client for freaks
+    ]]></description>
+</client>

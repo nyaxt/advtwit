@@ -75,6 +75,13 @@ class ProxyServer < WEBrick::HTTPProxyServer
     mount('/' + AdvTwitServlet::SERVLETROOT, AdvTwitServlet, core)
   end
 
+  def set_via(h)
+    # hook-ed here to add Twitter specific settings
+    h['X-Twitter-Client'] = 'advtwit'
+    h['X-Twitter-Client-Version'] = 'gittrunk'
+    h['X-Twitter-Client-URL'] = 'http://static.nyaxtstep.com/misc/advtwit.xml'
+  end
+
   def proxy_service(req, res)
     if toward_twitter?(req.request_uri)
       # do_service(req, res) 
