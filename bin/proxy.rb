@@ -47,7 +47,7 @@ class AdvTwitServlet < WEBrick::HTTPServlet::AbstractServlet
 
     if options[:first_update]
       options[:max_statuses] = 200
-      options[:since]         = @core.timeline.latest_post_time(options)
+      options[:since]         = @core.timeline.latest_post_time({:offset => options[:max_statuses]})
     end
 
     result_timeline(options, res, format)
@@ -144,7 +144,11 @@ if __FILE__ == $0
 
   Thread.start {
     loop do
-      core.update_twit
+      begin
+        core.update_twit
+      rescue => e
+        puts "ignoring error: #{e.inspect}"
+      end
       puts "loaded latest tweets! :-)"
       sleep 180
     end

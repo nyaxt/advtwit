@@ -202,10 +202,16 @@ class Timeline
   end
 
   def latest_post_time(options = {})
-    options = {:score_threshold => 80, :max_statuses => 20, :since => nil}.merge(options)
+    options = {:score_threshold => 80, :offset => 20}.merge(options)
 
-    @db.execute('select time from timeline where score > ? order by time desc limit 1 offset ?;', options[:score_threshold], options[:max_statuses]) do |row|
-      return row[0].to_i
+    if options[:timeline]
+      @db.execute('select time from timeline where score > ? and timeline = ? order by time desc limit 1 offset ?;', options[:score_threshold], options[:timeline], options[:offset]) do |row|
+        return Time.at(row[0].to_i)
+      end
+    else
+      @db.execute('select time from timeline where score > ? order by time desc limit 1 offset ?;', options[:score_threshold], options[:offset]) do |row|
+        return Time.at(row[0].to_i)
+      end
     end
   end
 
@@ -595,7 +601,9 @@ class App
     time_start = Time.now
 
     statuses = []
-    @twit.timeline(:friends).each do |s|
+    
+    since = @timeline.latest_post_time({:score_threshold => 0, :offset => 0, :timeline => Status::TL_FRIENDS})
+    @twit.timeline(:friends, {:since => since.rfc822}).each do |s|
       status = conv_status(s)
 
       status.score = FRIENDS_SCORE
@@ -603,7 +611,8 @@ class App
       statuses << status
     end
 
-    @twit.timeline(:public).each do |s|
+    since = @timeline.latest_post_time({:score_threshold => 0, :offset => 0, :timeline => Status::TL_PUBLIC})
+    @twit.timeline(:public, {:since => since.rfc822}).each do |s|
       status = conv_status(s)
 
       next if @nick_friends.include?(status.nick)
