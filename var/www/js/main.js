@@ -87,36 +87,36 @@ $(function() {
     $("#statuses_container").children().slice(200).remove();
   }
 
-  var updateTimelineTimerId = -1;
-  function updateTimelineJSON(json)
+  var refreshTimelineTimerId = -1;
+  function refreshTimelineJSON(json)
   {
-    if(updateTimelineTimerId != -1)
+    if(refreshTimelineTimerId != -1)
     {
-      clearTimeout(updateTimelineTimerId); 
+      clearTimeout(refreshTimelineTimerId); 
     }
 
     $.each(json, appendStatus);
     deleteOldStatus();
-    updateTimelineTimerId = setTimeout(updateTimeline, 10000);
+    refreshTimelineTimerId = setTimeout(refreshTimeline, 10000);
   }
 
   var firstUpdate = true;
-  function updateTimeline()
+  function refreshTimeline()
   {
     $.getJSON("/atw/statuses/advtwit_timeline.json",
       {
         'first_update':firstUpdate,
         'since':latestStatus.toGMTString()
       },
-      updateTimelineJSON
+      refreshTimelineJSON
       );
 
     if(firstUpdate) { firstUpdate = false; }
   }
 
-  $('input#refresh').click(updateTimeline);
+  $('input#refresh').click(refreshTimeline);
 
-  updateTimeline();
+  refreshTimeline();
 
   // === status textarea
   function updateCharLeft()
