@@ -12,6 +12,14 @@ sudo gem install twitter pit term-ansicolor json
 
 MeCab/Ruby and SQLite3/Ruby are also required.
 
+=== Installation on Debian Linux (lenny)
+
+- sqlite3 can be installed via apt-get: sudo apt-get install libsqlite3-ruby
+- mecab needs to be manually configured
+-- download mecab-*.tar.gz mecab-ruby-*.tar.gz mecab-ipadic-*.tar.gz 
+-- untar and do ./configure; make; sudo make install on each
+-- add a line '/usr/local/lib' to /etc/ld.so.conf and sudo ldconfig
+
 == Usage
 
 edit etc/advtwit.cfg.rb using your favorite editor.
