@@ -1,0 +1,45 @@
+#!/bin/bash
+# advtwit proxy init script based on
+#   http://nekojita.org/tmp-init.txt
+
+DAEMON=/data/advtwit/bin/proxy.rb
+NAME=advtwit
+USERID=kouhei
+OPTIONS=""
+PIDFILE=/var/run/advtwit.pid
+
+[ -x $DAEMON ] || exit 0
+
+case "$1" in
+	start)
+		echo -n "Starting $NAME: "
+		if /sbin/start-stop-daemon --stop --quiet \
+			--pidfile $PIDFILE --signal 0 --user $USERID
+		then
+			echo " already running."
+			exit
+		fi
+
+		/sbin/start-stop-daemon --start --quiet \
+			--pidfile $PIDFILE --background \
+			--make-pidfile --chuid $USERID \
+			--exec $DAEMON -- $OPTIONS
+		echo "$NAME."
+		;;
+
+	stop)
+		echo -n "Stopping $NAME: "
+		/sbin/start-stop-daemon --stop --quiet \
+			--pidfile $PIDFILE
+		rm -f $PIDFILE
+		echo "$NAME."
+		;;
+
+	*)
+		N=/etc/init.d/$NAME
+		echo "Usage: $N {start|stop}" >&2
+		exit 1
+		;;
+esac
+
+exit 0
