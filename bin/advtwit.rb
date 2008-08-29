@@ -644,7 +644,7 @@ class App
   def post_status_update(status)
     http = Net::HTTP.new('twitter.com', 80)
     req = Net::HTTP::Post.new('/statuses/update.json')
-    p req.body = "status=#{URI::encode(status)}&source=#{URI::encode(AdvTwit::CLIENTXMLURL)}"
+    p req.body = "status=#{URI::encode(status)}&source=advtwit"
     req.basic_auth(@opts[:twit_nick], @opts[:twit_pass])
 
     http.request req
