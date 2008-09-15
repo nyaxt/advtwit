@@ -38,6 +38,7 @@ $: << 'bin' << '.'
 require 'rubygems'
 require 'twitter'
 require 'nkf'
+require 'kconv'
 require 'rexml/document'
 require 'json'
 require 'MeCab'
@@ -418,7 +419,7 @@ class BayesianEvaluator < Evaluator
     status.traits.each_pair do |k, v|
       s = 1; x = 0.8
       p = 0; n = 0
-      @db.execute('select score, ntimes from bayes_wordlist where word = ?;') do |row|
+      @db.execute('select score, ntimes from bayes_wordlist where word = ?;', k) do |row|
         p = (row[0].to_f - 50) / 500
         n = row[1].to_i
       end
@@ -444,15 +445,15 @@ class BayesianEvaluator < Evaluator
       ntimes = 1
 
       begin
-        @db.execute('select score, ntimes from bayes_wordlist where word = ?;') do |row|
+        @db.execute('select score, ntimes from bayes_wordlist where word = ?;', k) do |row|
           score += row[0].to_i
           ntimes += row[1].to_i
         end
 
         if ntimes == 1
-          @db.execute('insert into bayes_wordlist values(?, ?);', k, v * status.score, 1)
+          @db.execute('insert into bayes_wordlist values(?, ?, ?);', k, v * status.score, 1)
         else
-          @db.execute('update bayes_wordlist set score = ?, ntimes = ? where word = ?;', score, ntimes, word)
+          @db.execute('update bayes_wordlist set score = ?, ntimes = ? where word = ?;', score, ntimes, k)
         end
       rescue SQLite3::SQLException => e
         puts "error while inserting a word into wordlist: #{e.inspect}"
@@ -494,12 +495,12 @@ END
 
         ok = false
         HINSI_WHITELIST.each do |e|
-          if hinsi.match(e)
+          if hinsi.toutf8.match(e)
             ok = true
           end
         end
         HINSI_BLACKLIST.each do |e|
-          if hinsi.match(e)
+          if hinsi.toutf8.match(e)
             ok = false
           end
         end
@@ -541,6 +542,12 @@ class EvaluatorComposer < Evaluator
   def evaluate(status)
     @evalers.inject(0) do |r, i|
       r += i.evaluate(status)
+    end
+  end
+
+  def feedback(status)
+    @evalers.each do |evaluator|
+      evaluator.feedback(status)
     end
   end
 
