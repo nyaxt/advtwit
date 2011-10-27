@@ -18,7 +18,7 @@ $(function() {
   function appendStatus()
   {
     var scrname = this['user']['screen_name'];
-  
+
     var scoreclass = '';
     if(this['score'] > 500)
     {
@@ -26,7 +26,7 @@ $(function() {
     }
     else if(this['score'] > 400)
     {
-      scoreclass = 'highscore'; 
+      scoreclass = 'highscore';
     }
     else if(this['score'] < 130)
     {
@@ -50,17 +50,17 @@ $(function() {
     $("#statuses_container").prepend(status);
     if(columnAB == 'a')
     {
-      columnAB = 'b'; 
+      columnAB = 'b';
     }
     else
     {
-      columnAB = 'a'; 
+      columnAB = 'a';
     }
 
     var created_at = new Date(this['created_at']);
     if(latestStatus < created_at)
     {
-      latestStatus = created_at; 
+      latestStatus = created_at;
     }
 
     var domst = $("#statuses_container").children().slice(0,1);
@@ -93,7 +93,7 @@ $(function() {
   {
     if(refreshTimelineTimerId != -1)
     {
-      clearTimeout(refreshTimelineTimerId); 
+      clearTimeout(refreshTimelineTimerId);
     }
 
     $.each(json, appendStatus);
@@ -133,7 +133,7 @@ $(function() {
 
   function updateStatusView(msg)
   {
-    domstat.text(msg); 
+    domstat.text(msg);
     domstat.fadeIn();
   }
 
